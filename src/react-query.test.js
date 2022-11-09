@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, cleanup } from '@testing-library/react';
 import { useQuery, QueryClientProvider, QueryClient } from "react-query"
 
 const queryCache = new QueryClient();
@@ -8,6 +8,8 @@ const TestCmp = () => {
   console.info(`::`, result);
   return null;
 };
+
+afterEach(cleanup)
 
 test('should have no act() error', () => {
   render(
