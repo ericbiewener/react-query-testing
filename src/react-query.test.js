@@ -1,7 +1,11 @@
-import { render } from '@testing-library/react';
-import { useQuery, QueryClientProvider, QueryClient } from "react-query"
+import { render } from "@testing-library/react";
+import {
+  useQuery,
+  QueryCache,
+  ReactQueryCacheProvider,
+} from "react-query";
 
-const queryCache = new QueryClient();
+const queryCache = new QueryCache();
 
 const TestCmp = () => {
   const result = useQuery(["foo"], () => Promise.resolve("foo"));
@@ -9,10 +13,10 @@ const TestCmp = () => {
   return null;
 };
 
-test('should have no act() error', () => {
+test("should have no act() error", () => {
   render(
-    <QueryClientProvider client={queryCache}>
+    <ReactQueryCacheProvider queryCache={queryCache}>
       <TestCmp />
-    </QueryClientProvider>
+    </ReactQueryCacheProvider>
   );
 });
