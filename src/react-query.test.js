@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import { useQuery, QueryClientProvider, QueryClient } from "@tanstack/react-query"
+import { useQuery, QueryClientProvider, QueryClient } from "react-query"
 
 const queryCache = new QueryClient();
 
