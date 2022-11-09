@@ -9,12 +9,12 @@ const TestCmp = () => {
   return null;
 };
 
-afterEach(cleanup)
-
 test('should have no act() error', () => {
   render(
     <QueryClientProvider client={queryCache}>
       <TestCmp />
     </QueryClientProvider>
   );
+
+  cleanup()
 });
