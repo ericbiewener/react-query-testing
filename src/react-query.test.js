@@ -9,7 +9,9 @@ const TestCmp = () => {
   return null;
 };
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+})
 
 test('should have no act() error', () => {
   render(
