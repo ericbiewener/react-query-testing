@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from "react";
 import { render, screen } from "@testing-library/react";
 import {
   useQuery,
@@ -15,7 +15,7 @@ const QueryCmp = ({ queryFn }) => {
 };
 
 const MutationCmp = ({ mutationFn }) => {
-  const [isDone, setIsDone] = useState(false)
+  const [isDone, setIsDone] = useState(false);
 
   const result = useMutation(mutationFn, {
     useErrorBoundary: false,
@@ -24,8 +24,14 @@ const MutationCmp = ({ mutationFn }) => {
   });
 
   useEffect(() => {
-    result.mutateAsync().finally(() => setIsDone(true))
-  }, [])
+    console.info(`:: sync result`, result.mutate());
+
+    result
+      .mutateAsync()
+      .then((rsp) => console.log(":: rsp", rsp))
+      .catch((e) => console.error(":: e", e))
+      .finally(() => setIsDone(true));
+  }, []);
 
   return isDone ? <div>done</div> : null;
 };
@@ -38,7 +44,7 @@ test("should have no act() error", () => {
   );
 });
 
-test("rejected promise teseting - query", () => {
+test("rejected promise testing - query", () => {
   render(
     <QueryClientProvider client={queryCache}>
       <QueryCmp queryFn={() => Promise.reject("foo")} />
@@ -46,12 +52,52 @@ test("rejected promise teseting - query", () => {
   );
 });
 
-test("rejected promise teseting - mutations", async () => {
+test("rejected promise testing - mutations", async () => {
   render(
     <QueryClientProvider client={queryCache}>
       <MutationCmp mutationFn={() => Promise.reject("foo")} />
     </QueryClientProvider>
   );
 
-  await screen.findByText('done')
+  await screen.findByText("done");
+});
+
+test("mutation response", async () => {
+  render(
+    <QueryClientProvider client={queryCache}>
+      <MutationCmp mutationFn={() => Promise.resolve("foo")} />
+    </QueryClientProvider>
+  );
+
+  await screen.findByText("done");
+});
+
+test.only("mutation callbacks", async () => {
+  const onMutate = jest
+    .fn()
+    .mockResolvedValueOnce(1)
+    .mockResolvedValueOnce(2)
+    .mockResolvedValueOnce(3);
+
+  let mutationResult;
+
+  const Cmp = () => {
+    mutationResult = useMutation(() => Promise.resolve(1), {
+      onMutate,
+      onSuccess: (...args) => console.log(":: onSuccess", args),
+      onError: (...args) => console.log(":: onError", args),
+    });
+
+    return null;
+  };
+
+  render(
+    <QueryClientProvider client={queryCache}>
+      <Cmp mutationFn={() => Promise.resolve("foo")} />
+    </QueryClientProvider>
+  );
+
+  await mutationResult.mutateAsync();
+  await mutationResult.mutateAsync();
+  await mutationResult.mutateAsync();
 });
