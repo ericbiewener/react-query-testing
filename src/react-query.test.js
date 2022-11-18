@@ -1,13 +1,22 @@
 import { useEffect, useState } from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, act } from "@testing-library/react";
 import {
   useQuery,
   QueryClientProvider,
   QueryClient,
   useMutation,
+  MutationObserver
 } from "@tanstack/react-query";
 
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
 const queryCache = new QueryClient();
+
+const Wrapper = ({ children }) => (
+  <QueryClientProvider client={queryCache}>{children}</QueryClientProvider>
+);
 
 const QueryCmp = ({ queryFn }) => {
   const result = useQuery(["foo"], queryFn);
@@ -38,25 +47,25 @@ const MutationCmp = ({ mutationFn }) => {
 
 test("should have no act() error", () => {
   render(
-    <QueryClientProvider client={queryCache}>
+    <Wrapper>
       <QueryCmp queryFn={() => Promise.resolve("foo")} />
-    </QueryClientProvider>
+    </Wrapper>
   );
 });
 
 test("rejected promise testing - query", () => {
   render(
-    <QueryClientProvider client={queryCache}>
+    <Wrapper>
       <QueryCmp queryFn={() => Promise.reject("foo")} />
-    </QueryClientProvider>
+    </Wrapper>
   );
 });
 
 test("rejected promise testing - mutations", async () => {
   render(
-    <QueryClientProvider client={queryCache}>
+    <Wrapper>
       <MutationCmp mutationFn={() => Promise.reject("foo")} />
-    </QueryClientProvider>
+    </Wrapper>
   );
 
   await screen.findByText("done");
@@ -64,15 +73,15 @@ test("rejected promise testing - mutations", async () => {
 
 test("mutation response", async () => {
   render(
-    <QueryClientProvider client={queryCache}>
+    <Wrapper>
       <MutationCmp mutationFn={() => Promise.resolve("foo")} />
-    </QueryClientProvider>
+    </Wrapper>
   );
 
   await screen.findByText("done");
 });
 
-test.only("mutation callbacks", async () => {
+test("mutation callbacks", async () => {
   const onMutate = jest
     .fn()
     .mockResolvedValueOnce(1)
@@ -92,12 +101,64 @@ test.only("mutation callbacks", async () => {
   };
 
   render(
-    <QueryClientProvider client={queryCache}>
+    <Wrapper>
       <Cmp mutationFn={() => Promise.resolve("foo")} />
-    </QueryClientProvider>
+    </Wrapper>
   );
 
   await mutationResult.mutateAsync();
   await mutationResult.mutateAsync();
   await mutationResult.mutateAsync();
+});
+
+describe.only("mutation isLoading state", () => {
+  let promises = [];
+  const mutationFn = () => {
+    const promise = new Promise((r) => {
+      setTimeout(r, 250);
+    });
+    promises.push(promise);
+    return promise;
+  };
+
+  beforeEach(() => {
+    promises = [];
+  });
+
+  const waitForMutations = () => Promise.all(promises);
+
+  test("mutation isLoading state", async () => {
+    const Cmp = () => {
+      const { mutateAsync, isLoading } = useMutation(mutationFn);
+      const [state, setState] = useState(0);
+
+      console.info(`:: render | state`, state);
+      console.log(":: render | isLoading", isLoading);
+      useEffect(() => {
+        console.log(":: useEffect");
+      });
+
+      return (
+        <>
+          <button onClick={mutateAsync}>Mutate</button>
+          <button onClick={() => setState((s) => s)}>
+            Update State - no change
+          </button>
+          <button onClick={() => setState((s) => s + 1)}>
+            Update State - change
+          </button>
+        </>
+      );
+    };
+
+    render(
+      <Wrapper>
+        <Cmp mutationFn={() => Promise.resolve("foo")} />
+      </Wrapper>
+    );
+
+    fireEvent.click(screen.getByText("Mutate"));
+    await waitFor(() => promises.length);
+    await act(waitForMutations)
+  });
 });
