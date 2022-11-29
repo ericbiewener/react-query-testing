@@ -1,11 +1,18 @@
 import { useEffect, useState } from "react";
-import { fireEvent, render, screen, waitFor, act } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  act,
+  waitForElementToBeRemoved
+} from "@testing-library/react";
 import {
   useQuery,
   QueryClientProvider,
   QueryClient,
   useMutation,
-  MutationObserver
+  QueryResult,
 } from "@tanstack/react-query";
 
 beforeEach(() => {
@@ -18,15 +25,17 @@ const Wrapper = ({ children }) => (
   <QueryClientProvider client={queryCache}>{children}</QueryClientProvider>
 );
 
-const QueryCmp = ({ queryFn }) => {
-  const result = useQuery(["foo"], queryFn);
+let result
+
+const QueryCmp = (options) => {
+  result = useQuery({ queryKey: ["foo"], ...options });
   return null;
 };
 
 const MutationCmp = ({ mutationFn }) => {
   const [isDone, setIsDone] = useState(false);
 
-  const result = useMutation(mutationFn, {
+  result = useMutation(mutationFn, {
     useErrorBoundary: false,
     onSuccess: (...args) => console.log(":: onSuccess", args),
     onError: (...args) => console.log(":: onError", args),
@@ -111,7 +120,7 @@ test("mutation callbacks", async () => {
   await mutationResult.mutateAsync();
 });
 
-describe.only("mutation isLoading state", () => {
+describe("mutation isLoading state", () => {
   let promises = [];
   const mutationFn = () => {
     const promise = new Promise((r) => {
@@ -153,12 +162,55 @@ describe.only("mutation isLoading state", () => {
 
     render(
       <Wrapper>
-        <Cmp mutationFn={() => Promise.resolve("foo")} />
+        <Cmp />
       </Wrapper>
     );
 
     fireEvent.click(screen.getByText("Mutate"));
     await waitFor(() => promises.length);
-    await act(waitForMutations)
+    await act(waitForMutations);
+    await require("@testing-library/react").act(() => new Promise(r => setTimeout(r, 4000)));
   });
+
+  test("mutation isLoading state 2", async () => {
+    const mutationFn = () =>
+      new Promise((r) => {
+        setTimeout(r, 250);
+      });
+
+    const MutationCmp = () => {
+      const { mutateAsync, isLoading } = useMutation(mutationFn);
+      console.log(isLoading)
+
+      return (
+        <div>
+          <button onClick={() => mutateAsync()}>Mutate</button>
+          {isLoading && <div>isLoading</div>}
+        </div>
+      );
+    };
+
+    render(
+      <Wrapper>
+        <MutationCmp />
+      </Wrapper>
+    );
+
+    fireEvent.click(screen.getByText("Mutate"));
+    const isLoadingEl = await screen.findByText("isLoading");
+    await waitForElementToBeRemoved(isLoadingEl);
+  });
+});
+
+it.only("refetch & idle state", () => {
+  render(
+    <Wrapper>
+      <QueryCmp queryFn={() => Promise.resolve("foo")} enabled={false} />
+    </Wrapper>
+  );
+
+  console.log(result.fetchStatus)
+  result.refetch()
+  console.log(result.fetchStatus, result.status, result.isFetching)
+  console.log(result.status)
 });
